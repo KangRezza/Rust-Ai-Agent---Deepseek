@@ -9,13 +9,13 @@ pub fn handle_command(
 ) -> Result<(), String> {
     if input.eq_ignore_ascii_case("chars") || input.eq_ignore_ascii_case("characters") {
         list_available_characters();
-        Ok(())
+        return Ok(());
     }
     else if input.eq_ignore_ascii_case("load") {
         println!("Please specify a character to load.");
         println!("Usage: load <character>");
         println!("To see available characters, type: chars");
-        Ok(())
+        return Ok(());
     }
     else if input.starts_with("load ") {
         let char_name = input.trim_start_matches("load ").trim();
@@ -23,7 +23,7 @@ pub fn handle_command(
             println!("Please specify a character to load.");
             println!("Usage: load <character>");
             println!("To see available characters, type: chars");
-            Ok(())
+            return Ok(());
         } else if let Some(mut profile) = load_personality_from_filename(char_name) {
             let name = profile.name.clone();
             let description = profile.get_str("description")
@@ -31,14 +31,12 @@ pub fn handle_command(
                 .to_string();
             println!("\n🔄 Successfully switched to: {} - {}", name.bright_yellow(), description);
             *current_personality = profile;
-            Ok(())
+            return Ok(());
         } else {
-            Err(format!("Failed to load character: {}. Type 'chars' to see available characters.", char_name))
+            return Err(format!("Failed to load character: {}. Type 'chars' to see available characters.", char_name));
         }
     }
-    else {
-        Err("Unknown character command".to_string())
-    }
+    Err("Unknown character command".to_string())
 }
 
 fn list_available_characters() {
@@ -52,12 +50,10 @@ fn list_available_characters() {
     if characters_dir.exists() {
         println!("\n  Custom:");
         if let Ok(entries) = characters_dir.read_dir() {
-            for entry in entries {
-                if let Ok(entry) = entry {
-                    if let Some(file_name) = entry.file_name().to_str() {
-                        if file_name.ends_with(".json") {
-                            println!("    - {}", file_name.trim_end_matches(".json"));
-                        }
+            for entry in entries.filter_map(Result::ok) {
+                if let Some(file_name) = entry.file_name().to_str() {
+                    if file_name.ends_with(".json") {
+                        println!("    - {}", file_name.trim_end_matches(".json"));
                     }
                 }
             }

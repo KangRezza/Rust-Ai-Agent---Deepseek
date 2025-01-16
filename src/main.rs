@@ -2,12 +2,15 @@ use std::env;
 use std::io::Write;
 use std::path::Path;
 use std::fs::File;
+use std::net::SocketAddr;
 use clap::Parser;
 use colored::Colorize;
 use dotenv::dotenv;
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
 use rustyline::history::DefaultHistory;
+use axum::serve;
+use tokio::net::TcpListener;
 
 use crate::providers::deepseek::DeepSeekProvider;
 use crate::knowledge_base::knowledge_base::KnowledgeBaseHandler;
@@ -34,8 +37,9 @@ mod learning;
 mod completion;
 mod personality;
 mod commands;
+mod api;
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 #[command(author, version, about, long_about = None)]
 struct Args {
     #[arg(short, long)]
@@ -61,6 +65,12 @@ struct Args {
 
     #[arg(long)]
     twitter_email: Option<String>,
+
+    #[arg(long)]
+    api: bool,
+
+    #[arg(long, default_value = "3000")]
+    port: u16,
 }
 
 #[tokio::main]
@@ -75,14 +85,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let args = Args::parse();
 
     // Get API key from command line or environment
-    let api_key = match args.api_key {
-        Some(key) => key,
+    let api_key = match &args.api_key {
+        Some(key) => key.clone(),
         None => env::var("DEEPSEEK_API_KEY").expect("API key must be provided via --api-key or DEEPSEEK_API_KEY env var"),
     };
 
     // Initialize personality
-    let mut current_personality = if let Some(character_file) = args.character {
-        match load_personality_from_filename(&character_file) {
+    let mut current_personality = if let Some(character_file) = &args.character {
+        match load_personality_from_filename(character_file) {
             Some(personality) => personality,
             None => {
                 println!("Failed to load character: {}", character_file);
@@ -107,6 +117,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Initialize database
     let database = Database::new("data/agent.db").await?;
 
+    let result = if args.api {
+        run_api_server(args).await
+    } else {
+        run_cli_mode(
+            &args,
+            personality_profile,
+            deepseek_provider,
+            database,
+        ).await
+    };
+    
+    result
+}
+
+async fn run_cli_mode(
+    args: &Args,
+    personality_profile: PersonalityProfile,
+    deepseek_provider: DeepSeekProvider,
+    database: Database,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Initialize knowledge base handler
     let knowledge_base_handler = KnowledgeBaseHandler::new("data/knowledge_base.json");
 
@@ -189,4 +219,64 @@ fn create_default_personality() -> Personality {
             ]
         }),
     })
+}
+
+async fn run_api_server(args: Args) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let addr: SocketAddr = format!("0.0.0.0:{}", args.port)
+        .parse()
+        .expect("Failed to parse address");
+    
+    println!("Starting API server on {}", addr);
+    
+    // Get API key from command line or environment
+    let api_key = match &args.api_key {
+        Some(key) => key.clone(),
+        None => env::var("DEEPSEEK_API_KEY").expect("API key must be provided via --api-key or DEEPSEEK_API_KEY env var"),
+    };
+
+    // Initialize personality
+    let personality = if let Some(character_file) = &args.character {
+        if let Some(Personality::Dynamic(profile)) = load_personality_from_filename(character_file) {
+            profile
+        } else {
+            create_default_personality().into_dynamic_profile()
+        }
+    } else {
+        create_default_personality().into_dynamic_profile()
+    };
+    
+    // Initialize providers
+    let deepseek = DeepSeekProvider::new(
+        api_key.clone(),
+        personality.generate_system_prompt(),
+    ).await?;
+    
+    // Initialize database
+    let db = Database::new("data/agent.db").await?;
+    
+    println!("Initializing API routes...");
+    let app = crate::api::create_api(deepseek, personality, db).await;
+    
+    println!("API routes configured, attempting to bind to address...");
+    
+    let listener = TcpListener::bind(&addr).await
+        .map_err(|e| format!("Failed to bind to {}: {}", addr, e))?;
+    
+    println!("Server successfully bound to {}", addr);
+    println!("Ready to accept connections!");
+    
+    axum::serve(listener, app)
+        .await
+        .map_err(|e| format!("Server error: {}", e))?;
+    
+    Ok(())
+}
+
+// Add helper method for Personality
+impl Personality {
+    fn into_dynamic_profile(self) -> PersonalityProfile {
+        match self {
+            Personality::Dynamic(profile) => profile,
+        }
+    }
 }

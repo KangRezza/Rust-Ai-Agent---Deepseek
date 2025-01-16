@@ -32,15 +32,9 @@ anyhow = "1.0"
 rustyline = "12.0.0"
 fantoccini = "0.21.4"
 
-[[example]]
-name = "memory_demo"
-path = "examples/memory_demo.rs"
+# Web API dependencies
+axum = { version = "0.7", features = ["json", "macros"] }
+tower-http = { version = "0.5", features = ["cors", "set-header"] }
 
-[[example]]
-name = "memory_tests"
-path = "examples/memory_tests.rs"
-test = true
 
-[[example]]
-name = "web_crawler_test"
-path = "examples/web_crawler_test.rs"
+

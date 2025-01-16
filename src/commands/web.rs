@@ -16,18 +16,12 @@ pub async fn handle_command(
             crawler.analyze_webpage(url).await
                 .map(|analysis| {
                     for line in analysis {
-                        if line.starts_with("🔍") {
-                            println!("{}", line.bright_cyan());
-                        } else if line.starts_with("📑") {
-                            println!("{}", line.bright_yellow());
-                        } else if line.starts_with("📝") {
-                            println!("{}", line.bright_green());
-                        } else if line.starts_with("──") {
-                            println!("{}", line.bright_black());
-                        } else if !line.is_empty() {
-                            println!("  • {}", line);
-                        } else {
-                            println!();
+                        match line.chars().next() {
+                            Some('🔍') => println!("{}", line.bright_cyan()),
+                            Some('📑') => println!("{}", line.bright_yellow()),
+                            Some('📝') => println!("{}", line.bright_green()),
+                            Some('─') => println!("{}", line.bright_black()),
+                            _ => println!("  • {}", line),
                         }
                     }
                 })
@@ -43,18 +37,13 @@ pub async fn handle_command(
             crawler.research_topic(topic).await
                 .map(|findings| {
                     for finding in findings {
-                        if finding.starts_with("📚") {
-                            println!("\n{}", finding.bright_cyan());
-                        } else if finding.starts_with("🔍") {
-                            println!("\n{}", finding.bright_yellow());
-                        } else if finding.starts_with("💡") {
-                            println!("\n{}", finding.bright_green());
-                        } else if finding.starts_with("📊") {
-                            println!("\n{}", finding.bright_cyan());
-                        } else if finding.starts_with("──") {
-                            println!("{}", finding.bright_black());
-                        } else if !finding.is_empty() {
-                            println!("  • {}", finding);
+                        match finding.chars().next() {
+                            Some('📚') => println!("\n{}", finding.bright_cyan()),
+                            Some('🔍') => println!("\n{}", finding.bright_yellow()),
+                            Some('💡') => println!("\n{}", finding.bright_green()),
+                            Some('📊') => println!("\n{}", finding.bright_cyan()),
+                            Some('─') => println!("{}", finding.bright_black()),
+                            _ => println!("  • {}", finding),
                         }
                     }
                 })
@@ -70,14 +59,11 @@ pub async fn handle_command(
             crawler.follow_links(url, 1).await
                 .map(|result| {
                     for line in result.lines() {
-                        if line.starts_with("🔗") {
-                            println!("\n{}", line.bright_cyan());
-                        } else if line.starts_with("Total") {
-                            println!("\n{}", line.bright_yellow());
-                        } else if line.starts_with("──") {
-                            println!("{}", line.bright_black());
-                        } else if !line.is_empty() {
-                            println!("  • {}", line);
+                        match line.chars().next() {
+                            Some('🔗') => println!("\n{}", line.bright_cyan()),
+                            Some('T') if line.starts_with("Total") => println!("\n{}", line.bright_yellow()),
+                            Some('─') => println!("{}", line.bright_black()),
+                            _ => println!("  • {}", line),
                         }
                     }
                 })

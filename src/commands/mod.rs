@@ -1,4 +1,3 @@
-use std::io::Write;
 use colored::Colorize;
 
 use crate::providers::deepseek::DeepSeekProvider;
@@ -55,11 +54,8 @@ impl CommandHandler {
 
         // Handle single-word commands first
         match input.to_lowercase().as_str() {
-            "help" => return self.handle_system_command(input).await,
-            "exit" | "quit" => return self.handle_system_command(input).await,
-            "chars" | "characters" => return self.handle_character_command(input).await,
-            "load" => return self.handle_character_command(input).await,
-            "" => return Ok(()),
+            "help" | "exit" | "quit" => return self.handle_system_command(input).await,
+            "chars" | "characters" | "load" => return self.handle_character_command(input).await,
             _ => {}
         }
 
@@ -145,6 +141,10 @@ impl CommandHandler {
     }
 
     async fn handle_chat_command(&mut self, input: &str) -> Result<(), String> {
+        // Count input tokens
+        let input_tokens = input.split_whitespace().count();
+        println!("📥 Input tokens: {}", input_tokens.to_string().cyan());
+
         // Get recent conversations from database
         let recent_convos = match self.db.get_recent_conversations(5).await {
             Ok(convos) => convos,
@@ -171,6 +171,9 @@ impl CommandHandler {
 
         match self.deepseek_provider.complete(&prompt).await {
             Ok(response) => {
+                // Count response tokens
+                let response_tokens = response.split_whitespace().count();
+                
                 // Save to database
                 if let Err(e) = self.db.save_conversation(
                     input.to_string(), 
@@ -180,16 +183,17 @@ impl CommandHandler {
                     eprintln!("Warning: Failed to save conversation to database: {}", e);
                 }
 
-                println!("{}", response.bright_green());
+                // Print response with token counts
+                self.print_response(&self.personality.name, &response, input_tokens, response_tokens);
                 Ok(())
             }
             Err(e) => Err(format!("Failed to get AI response: {}", e))
         }
     }
 
-    fn print_response(&self, _character_name: &str, response: &str, input_tokens: usize, response_tokens: usize) {
-        println!("{}", response);
-        println!("\n📊 Tokens: {} in / {} out (total: {})", 
+    fn print_response(&self, character_name: &str, response: &str, input_tokens: usize, response_tokens: usize) {
+        println!("{}", response.bright_green());
+        println!("\n📊 Tokens: 📥 Input: {} | 📤 Response: {} | 📈 Total: {}", 
             input_tokens.to_string().cyan(),
             response_tokens.to_string().cyan(),
             (input_tokens + response_tokens).to_string().cyan()

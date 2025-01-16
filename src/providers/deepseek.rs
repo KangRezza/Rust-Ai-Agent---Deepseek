@@ -48,6 +48,10 @@ impl DeepSeekProvider {
     pub async fn get_personality(&self) -> &String {
         &self.system_message
     }
+
+    pub fn update_system_prompt(&mut self, new_prompt: String) {
+        self.system_message = new_prompt;
+    }
 }
 
 #[async_trait::async_trait]

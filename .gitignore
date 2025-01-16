@@ -1,4 +1,4 @@
-# Ignore Cargo build files
+	# Ignore Cargo build files
 /target/
 **/*.rs.bk
 
@@ -15,3 +15,6 @@
 
 # Ignore database files
 data/agent.db
+agent.db
+
+logs/twitter.log

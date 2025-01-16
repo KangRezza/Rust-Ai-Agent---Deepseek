@@ -1,5 +1,7 @@
 use serde::{Serialize, Deserialize};
 use serde_json::Value;
+use std::fs;
+use std::path::Path;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PersonalityProfile {
@@ -80,6 +82,11 @@ impl PersonalityProfile {
             traits,
             interests
         )
+    }
+
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, Box<dyn std::error::Error>> {
+        let content = fs::read_to_string(path)?;
+        Ok(Self::from_json(&content)?)
     }
 }
 

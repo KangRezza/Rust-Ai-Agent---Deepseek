@@ -1,5 +1,6 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
 use anyhow::{Result, Error as AnyhowError};
 use colored::Colorize;
@@ -14,7 +15,7 @@ use crate::providers::twitter::composer::TweetComposer;
 const DEFAULT_EMOJI: &str = "💭";
 
 pub struct ConversationManager {
-    profile: PersonalityProfile,
+    profile: Arc<RwLock<PersonalityProfile>>,
     twitter: Arc<TwitterProvider>,
     auto_post_enabled: Arc<AtomicBool>,
     auto_post_task: Option<JoinHandle<()>>,
@@ -26,14 +27,56 @@ impl ConversationManager {
             .map_err(|e| AnyhowError::msg(e.to_string()))?;
         
         Ok(Self { 
-            profile,
+            profile: Arc::new(RwLock::new(profile)),
             twitter,
             auto_post_enabled: Arc::new(AtomicBool::new(false)),
             auto_post_task: None,
         })
     }
 
+    pub async fn update_personality(&mut self, profile: PersonalityProfile) {
+        let mut current_profile = self.profile.write().await;
+        *current_profile = profile;
+    }
+
+    async fn log_twitter_activity(&self, message: &str) -> std::io::Result<()> {
+        let mut file = OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open("/var/log/twitter/twitter.log")?;
+            
+        let profile = self.profile.read().await;
+        writeln!(file, "[{}] [{}] {}", 
+            chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
+            profile.name,
+            message)
+    }
+
+    pub async fn generate_and_post_tweet(&self) -> Result<String> {
+        // Verify and log the current profile
+        let profile_guard = self.profile.read().await;
+        let profile = &*profile_guard;
+        let name = profile.name.clone();
+        let desc = profile.get_str("description").unwrap_or_default();
+        
+        println!("🤖 Generating tweet as: {}", name);
+        println!("Character: {}", desc);
+        
+        // First generate a topic using the verified profile
+        let topic = TweetComposer::generate_auto_post_topic(profile).await?;
+        println!("📝 Generated topic: \"{}\"", topic);
+        
+        // Then generate a tweet about that topic using the same profile
+        let tweet = TweetComposer::generate_auto_tweet(profile).await?;
+        println!("✍️ Generated tweet in {}'s style", name);
+        Ok(tweet)
+    }
+
     pub async fn handle_command(&mut self, input: &str) -> Result<()> {
+        // Show token count for input
+        let token_count = input.split_whitespace().count();
+        println!("📊 Input tokens: {}", token_count);
+
         match input.trim() {
             "tweet" => {
                 println!("🤖 Generating AI tweet...");
@@ -90,11 +133,14 @@ impl ConversationManager {
 
                     let task = tokio::spawn(async move {
                         while auto_post_enabled.load(Ordering::SeqCst) {
-                            match TweetComposer::generate_auto_tweet(&profile).await {
+                            // Get the current profile
+                            let profile_guard = profile.read().await;
+                            let current_profile = &*profile_guard;
+                            match TweetComposer::generate_auto_tweet(current_profile).await {
                                 Ok(tweet_content) => {
                                     match twitter.post_tweet(&tweet_content, true).await {
                                         Ok(status) => {
-                                            println!("✅ Auto-tweet posted successfully!");
+                                            println!("✅ Auto-tweet posted successfully as {}!", current_profile.name);
                                             println!("🔗 Tweet URL: {}", status.url);
                                         },
                                         Err(e) => println!("❌ Failed to post tweet: {}", e)
@@ -102,6 +148,8 @@ impl ConversationManager {
                                 },
                                 Err(e) => println!("❌ Failed to generate tweet: {}", e)
                             }
+                            // Drop the read lock
+                            drop(profile_guard);
 
                             println!("⏰ Next auto-tweet in {} minutes...", mins);
                             tokio::time::sleep(tokio::time::Duration::from_secs(mins * 60)).await;
@@ -192,7 +240,9 @@ impl ConversationManager {
             s if s.starts_with("autoreply ") => {
                 if let Some((tweet_id, tweet_text)) = s.trim_start_matches("autoreply ").split_once(' ') {
                     println!("🤖 Generating AI reply to tweet: \"{}\"", tweet_text);
-                    match TweetComposer::generate_auto_reply(&self.profile, tweet_text).await {
+                    let profile_guard = self.profile.read().await;
+                    let profile = &*profile_guard;
+                    match TweetComposer::generate_auto_reply(profile, tweet_text).await {
                         Ok(reply) => {
                             println!("📝 Generated reply: \"{}\"", reply);
                             println!("\nWould you like to post this reply? (y/n)");
@@ -222,7 +272,9 @@ impl ConversationManager {
             s if s.starts_with("autodm @") => {
                 if let Some((username, _)) = s.trim_start_matches("autodm @").split_once(": ") {
                     println!("🤖 Generating AI DM for @{}...", username);
-                    match TweetComposer::generate_dm(&self.profile, username).await {
+                    let profile_guard = self.profile.read().await;
+                    let profile = &*profile_guard;
+                    match TweetComposer::generate_dm(profile, username).await {
                         Ok(dm) => {
                             println!("📝 Generated DM: \"{}\"", dm);
                             println!("\nWould you like to send this DM? (y/n)");
@@ -249,11 +301,13 @@ impl ConversationManager {
             s if s.starts_with("automention ") => {
                 if let Some((username, mention_text)) = s.trim_start_matches("automention ").split_once(' ') {
                     println!("🤖 Generating AI response to mention from @{}...", username);
+                    let profile_guard = self.profile.read().await;
+                    let profile = &*profile_guard;
                     let mention = Mention {
                         id: None,
                         text: mention_text.to_string()
                     };
-                    match TweetComposer::generate_mention_response(&self.profile, &mention).await {
+                    match TweetComposer::generate_mention_response(profile, &mention).await {
                         Ok(response) => {
                             println!("📝 Generated response: \"{}\"", response);
                             println!("\nWould you like to post this response? (y/n)");
@@ -282,7 +336,9 @@ impl ConversationManager {
 
             "topic" => {
                 println!("🤖 Generating tweet topic...");
-                match TweetComposer::generate_auto_post_topic(&self.profile).await {
+                let profile_guard = self.profile.read().await;
+                let profile = &*profile_guard;
+                match TweetComposer::generate_auto_post_topic(profile).await {
                     Ok(topic) => {
                         println!("📝 Generated topic: \"{}\"", topic);
                         println!("\nWould you like to generate a tweet about this topic? (y/n)");
@@ -291,7 +347,7 @@ impl ConversationManager {
                         std::io::stdin().read_line(&mut input)?;
                         
                         if input.trim().to_lowercase() == "y" {
-                            match TweetComposer::generate_auto_tweet(&self.profile).await {
+                            match TweetComposer::generate_auto_tweet(profile).await {
                                 Ok(tweet_content) => {
                                     println!("📝 Generated tweet: \"{}\"", tweet_content);
                                     println!("\nWould you like to post this tweet? (y/n)");
@@ -338,18 +394,6 @@ impl ConversationManager {
         Ok(())
     }
 
-    fn log_twitter_activity(&self, message: &str) -> std::io::Result<()> {
-        let mut file = OpenOptions::new()
-            .append(true)
-            .create(true)
-            .open("/var/log/twitter/twitter.log")?;
-            
-        writeln!(file, "[{}] [{}] {}", 
-            chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
-            self.profile.name,
-            message)
-    }
-
     fn show_logs(&self, count: usize) -> std::io::Result<()> {
         let log_path = "/var/log/twitter/twitter.log";
         let file = match File::open(log_path) {
@@ -373,24 +417,6 @@ impl ConversationManager {
         Ok(())
     }
 
-    pub async fn generate_and_post_tweet(&self) -> Result<String> {
-        // Verify and log the current profile
-        let name = self.profile.name.clone();
-        let desc = self.profile.get_str("description").unwrap_or_default();
-        
-        println!("🤖 Generating tweet as: {}", name);
-        println!("Character: {}", desc);
-        
-        // First generate a topic using the verified profile
-        let topic = TweetComposer::generate_auto_post_topic(&self.profile).await?;
-        println!("📝 Generated topic: \"{}\"", topic);
-        
-        // Then generate a tweet about that topic using the same profile
-        let tweet = TweetComposer::generate_auto_tweet(&self.profile).await?;
-        println!("✍️ Generated tweet in {}'s style", name);
-        Ok(tweet)
-    }
-
     pub async fn direct_tweet(&self, content: &str) -> Result<TweetStatus> {
         self.twitter.post_tweet(content, true).await
             .map_err(|e| AnyhowError::msg(e.to_string()))
@@ -402,9 +428,5 @@ impl ConversationManager {
 
     async fn send_dm(&self, username: &str, content: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         self.twitter.send_dm(username, content).await
-    }
-
-    pub async fn update_personality(&mut self, profile: PersonalityProfile) {
-        self.profile = profile;
     }
 }

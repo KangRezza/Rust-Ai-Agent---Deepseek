@@ -174,8 +174,8 @@ impl TwitterProvider {
     }
 
     pub async fn post_tweet(&self, content: &str, is_auto: bool) -> Result<TweetStatus, Box<dyn std::error::Error + Send + Sync>> {
-        let log_type = if is_auto { LogType::AutoTweet } else { LogType::Tweet };
-        self.log_activity(log_type, content)?;
+        let log_message = format!("Posting tweet: {}", content);
+        self.log_activity(if is_auto { LogType::AutoTweet } else { LogType::Tweet }, &log_message)?;
         println!("Generating tweet content...");
         println!("Generated tweet: {}", content.bright_white());
         

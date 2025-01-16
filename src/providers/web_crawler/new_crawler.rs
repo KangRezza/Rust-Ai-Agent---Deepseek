@@ -1,7 +1,6 @@
 use reqwest::Client;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 use std::error::Error;
 use std::time::Duration;
 use tokio::time;
@@ -52,12 +51,9 @@ impl WebCrawler {
 
         // Return multiple search variations for better results
         Ok(vec![
-            // Google variations
             format!("https://www.google.com/search?q={}", urlencoding::encode(query)),
             format!("https://www.google.com/search?q={}&tbm=nws", urlencoding::encode(query)), // News
             format!("https://www.google.com/search?q={}+review", urlencoding::encode(query)),  // Reviews
-            
-            // DuckDuckGo variations
             format!("https://duckduckgo.com/?q={}", urlencoding::encode(query)),
             format!("https://duckduckgo.com/?q={}+guide", urlencoding::encode(query)),        // Guides
             format!("https://duckduckgo.com/?q={}&t=h_", urlencoding::encode(query)),         // Different region
@@ -102,19 +98,6 @@ impl WebCrawler {
             .filter(|href| href.starts_with("http"))
             .map(|href| href.to_string())
             .collect();
-
-        // Format output
-        println!("\n# Page Analysis");
-        if let Some(title) = &title {
-            println!("## Title: {}\n", title);
-        }
-        println!("## URL: {}\n", final_url);
-        println!("## Content:\n{}
-", text);
-        println!("## Links:");
-        for link in &links {
-            println!("- {}", link);
-        }
 
         Ok(PageContent {
             url: final_url,

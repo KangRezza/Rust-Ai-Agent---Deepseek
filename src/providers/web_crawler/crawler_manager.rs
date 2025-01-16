@@ -1,4 +1,4 @@
-use super::{WebCrawler, PageContent};
+use super::WebCrawler;
 use crate::personality::PersonalityProfile;
 use std::error::Error;
 use std::sync::Arc;
@@ -7,6 +7,7 @@ use tokio::sync::Mutex;
 pub struct WebCrawlerManager {
     crawler: Arc<Mutex<WebCrawler>>,
     profile: PersonalityProfile,
+
 }
 
 impl WebCrawlerManager {
