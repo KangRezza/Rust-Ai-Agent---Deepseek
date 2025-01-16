@@ -15,7 +15,7 @@ use std::fmt;
 use tokio::fs;
 
 use crate::personality::PersonalityProfile;
-use crate::providers::deepseek::DeepSeekProvider;
+use crate::DeepSeekProvider;
 use crate::database::Database;
 use crate::completion::CompletionProvider;
 

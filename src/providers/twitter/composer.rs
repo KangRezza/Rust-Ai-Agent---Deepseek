@@ -1,10 +1,10 @@
 use crate::personality::PersonalityProfile;
 use crate::providers::twitter::twitbrain::Mention;
-use crate::providers::deepseek::DeepSeekProvider;
+use crate::providers::deepseek::deepseek::DeepSeekProvider;
 use crate::completion::CompletionProvider;
 use anyhow::Result;
 
-const MAX_TWEET_LENGTH: usize = 280;
+const MAX_TWEET_LENGTH: usize = 270;
 const DEFAULT_EMOJI: &str = "💭";
 
 pub struct TweetComposer;
@@ -167,7 +167,7 @@ Topic:".to_string());
             2. Draw from your expertise in {}\n\
             3. Use your characteristic communication style\n\
             4. Keep your personality traits consistent\n\
-            5. Stay within Twitter's character limit\n\
+            5. Stay within Twitter's character limit at 260 character \n\
             6. Make it engaging and true to your character\n\n\
             Tweet:", 
             topic,

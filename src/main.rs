@@ -12,7 +12,7 @@ use rustyline::history::DefaultHistory;
 use axum::serve;
 use tokio::net::TcpListener;
 
-use crate::providers::deepseek::DeepSeekProvider;
+use crate::providers::deepseek::deepseek::DeepSeekProvider;
 use crate::knowledge_base::knowledge_base::KnowledgeBaseHandler;
 use crate::database::Database;
 use crate::learning::LearningManager;

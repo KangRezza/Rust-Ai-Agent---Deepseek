@@ -1,6 +1,6 @@
 use colored::Colorize;
 
-use crate::providers::deepseek::DeepSeekProvider;
+use crate::DeepSeekProvider;
 use crate::personality::PersonalityProfile;
 use crate::providers::twitter::manager::ConversationManager;
 use crate::providers::web_crawler::crawler_manager::WebCrawlerManager;

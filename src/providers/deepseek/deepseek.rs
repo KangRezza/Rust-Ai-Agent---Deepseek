@@ -1,98 +1,118 @@
 use reqwest::Client;
 use serde_json::json;
-use std::error::Error;
-use colored::Colorize;
+use std::env;
 use crate::completion::CompletionProvider;
+use dotenv::dotenv;
+
+#[derive(Debug)]
+pub struct DeepSeekError(Box<dyn std::error::Error + Send + Sync>);
+
+impl std::fmt::Display for DeepSeekError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl std::error::Error for DeepSeekError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&*self.0)
+    }
+}
 
 pub struct DeepSeekProvider {
     api_key: String,
     client: Client,
-    personality: PersonalityProfile,
-}
-
-impl CompletionProvider for DeepSeekProvider {
-    type Error = Box<dyn Error + Send + Sync>;
-
-    async fn complete(&self, prompt: &str) -> Result<String, Self::Error> {
-        // Build a character-specific system message
-        let mut system_parts = vec![
-            format!("You are {}", self.personality.name),
-            format!("Role: {}", self.personality.get_str("description").unwrap_or_default()),
-            format!("Style: {}", self.personality.get_str("style").unwrap_or_default())
-        ];
-        
-        // Add traits if available
-        if let Some(traits) = self.personality.get_array("traits") {
-            let trait_list: Vec<_> = traits.iter()
-                .filter_map(|v| v.as_str())
-                .collect();
-            if !trait_list.is_empty() {
-                system_parts.push(format!("Traits: {}", trait_list.join(", ")));
-            }
-        }
-
-        // Add interests/expertise
-        if let Some(interests) = self.personality.get_array("interests") {
-            let interest_list: Vec<_> = interests.iter()
-                .filter_map(|v| v.as_str())
-                .collect();
-            if !interest_list.is_empty() {
-                system_parts.push(format!("Expert in: {}", interest_list.join(", ")));
-            }
-        }
-
-        // Add communication preferences
-        if let Some(prefs) = self.personality.attributes.get("communication_preferences") {
-            if let Some(obj) = prefs.as_object() {
-                if let Some(style) = obj.get("primary_style") {
-                    system_parts.push(format!("Communication style: {}", style.as_str().unwrap_or_default()));
-                }
-                if let Some(complexity) = obj.get("complexity") {
-                    system_parts.push(format!("Technical level: {}", complexity.as_str().unwrap_or_default()));
-                }
-            }
-        }
-
-        let system_message = system_parts.join("\n");
-        
-        let payload = json!({
-            "model": "deepseek-chat",
-            "messages": [
-                {
-                    "role": "system",
-                    "content": system_message
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ]
-        });
-
-        let response = self.client
-            .post("https://api.deepseek.com/v1/chat/completions")
-            .header("Authorization", format!("Bearer {}", self.api_key))
-            .json(&payload)
-            .send()
-            .await?;
-
-        let result = response.json::<serde_json::Value>().await?;
-        
-        let content = result["choices"][0]["message"]["content"]
-            .as_str()
-            .unwrap_or("")
-            .to_string();
-
-        Ok(content)
-    }
+    system_message: String,
+    api_url: String,
 }
 
 impl DeepSeekProvider {
-    pub async fn new(api_key: String, personality: PersonalityProfile) -> Result<Self, Box<dyn Error + Send + Sync>> {
+    pub async fn new(api_key: String, system_message: String) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        dotenv().ok();
+        let api_url = env::var("DEEPSEEK_BASE_URL")
+            .expect("DEEPSEEK_BASE_URL must be set in environment");
+
         Ok(Self {
             api_key,
             client: Client::new(),
-            personality,
+            system_message,
+            api_url,
         })
+    }
+
+    pub async fn update_personality(&mut self, system_message: String) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.system_message = system_message;
+        Ok(())
+    }
+
+    pub async fn get_personality(&self) -> &String {
+        &self.system_message
+    }
+
+    pub fn update_system_prompt(&mut self, new_prompt: String) {
+        self.system_message = new_prompt;
+    }
+}
+
+#[async_trait::async_trait]
+impl CompletionProvider for DeepSeekProvider {
+    type Error = DeepSeekError;
+
+    async fn complete(&self, prompt: &str) -> Result<String, DeepSeekError> {
+        let api_endpoint = format!("{}/v1/chat/completions", self.api_url);
+
+        let messages = json!([
+            {
+                "role": "system",
+                "content": &self.system_message
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ]);
+
+        let request_body = json!({
+            "model": env::var("DEEPSEEK_MODEL").unwrap_or_else(|_| "deepseek-chat".to_string()),
+            "messages": messages,
+            "max_tokens": env::var("DEEPSEEK_MAX_TOKENS")
+                .ok()
+                .and_then(|s| s.parse::<i32>().ok())
+                .unwrap_or(2048),
+            "temperature": env::var("DEEPSEEK_TEMPERATURE")
+                .ok()
+                .and_then(|s| s.parse::<f32>().ok())
+                .unwrap_or(1.0),
+            "frequency_penalty": 2.0,
+            "presence_penalty": 1.5
+        });
+
+        let response = self.client
+            .post(&api_endpoint)
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .json(&request_body)
+            .send()
+            .await
+            .map_err(|e| DeepSeekError(Box::new(e)))?;
+
+        let response_text = response.text().await
+            .map_err(|e| DeepSeekError(Box::new(e)))?;
+
+        let response_json: serde_json::Value = serde_json::from_str(&response_text)
+            .map_err(|e| DeepSeekError(Box::new(e)))?;
+
+        let content = response_json
+            .get("choices")
+            .and_then(|choices| choices.get(0))
+            .and_then(|choice| choice.get("message"))
+            .and_then(|message| message.get("content"))
+            .and_then(|content| content.as_str())
+            .ok_or_else(|| DeepSeekError(Box::new(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("Failed to extract content from response: {}", response_text)
+            ))))?
+            .to_string();
+
+        Ok(content)
     }
 }
