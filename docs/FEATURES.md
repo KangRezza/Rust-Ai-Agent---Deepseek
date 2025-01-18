@@ -12,21 +12,27 @@ Commands:
 
 `bash
 Analyze a document
+
 doc analyze <file_path>
 
 Get a quick summary
+
 doc summary <file_path>
 
 Extract text
+
 doc extract <file_path>
 
 Process images with OCR
+
 doc ocr <image_path>
 
 Batch process files
+
 doc batch <folder_path>
 
 Show file information
+
 doc info <file_path>
 
 
