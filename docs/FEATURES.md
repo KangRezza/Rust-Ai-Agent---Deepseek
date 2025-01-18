@@ -10,7 +10,8 @@ Supports multiple document types:
 
 Commands:
 
-`bash
+```bash
+
 Analyze a document
 
 doc analyze <file_path>
@@ -37,13 +38,17 @@ doc info <file_path>
 
 
 ### Web Research with Context
-`bash
+```bash
+
 First research a topic
+
 research rust programming
 
 AI provides structured analysis
+
 Ask follow-up questions
 
 web chat what are the main advantages?
+
 web chat can you explain async/await?
 
