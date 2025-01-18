@@ -12,27 +12,27 @@ Commands:
 
 ```bash
 
-Analyze a document
+### Analyze a document
 
 doc analyze <file_path>
 
-Get a quick summary
+### Get a quick summary
 
 doc summary <file_path>
 
-Extract text
+### Extract text
 
 doc extract <file_path>
 
-Process images with OCR
+### Process images with OCR
 
 doc ocr <image_path>
 
-Batch process files
+### Batch process files
 
 doc batch <folder_path>
 
-Show file information
+### Show file information
 
 doc info <file_path>
 
@@ -40,13 +40,13 @@ doc info <file_path>
 ### Web Research with Context
 ```bash
 
-First research a topic
+### First research a topic
 
 research rust programming
 
-AI provides structured analysis
+### AI provides structured analysis
 
-Ask follow-up questions
+### Ask follow-up questions
 
 web chat what are the main advantages?
 
