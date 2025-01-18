@@ -24,17 +24,18 @@ pub fn handle_command(
             println!("Usage: load <character>");
             println!("To see available characters, type: chars");
             return Ok(());
-        } else if let Some(mut profile) = load_personality_from_filename(char_name) {
-            let name = profile.name.clone();
-            let description = profile.get_str("description")
-                .unwrap_or("an AI assistant")
-                .to_string();
-            println!("\n🔄 Successfully switched to: {} - {}", name.bright_yellow(), description);
-            *current_personality = profile;
-            return Ok(());
-        } else {
-            return Err(format!("Failed to load character: {}. Type 'chars' to see available characters.", char_name));
-        }
+        } 
+        
+        let profile = load_personality_from_filename(char_name)
+            .ok_or_else(|| format!("Failed to load character: {}. Type 'chars' to see available characters.", char_name))?;
+            
+        let name = profile.name.clone();
+        let description = profile.get_str("description")
+            .unwrap_or("an AI assistant")
+            .to_string();
+        println!("\n🔄 Successfully switched to: {} - {}", name.bright_yellow(), description);
+        *current_personality = profile;
+        return Ok(());
     }
     Err("Unknown character command".to_string())
 }

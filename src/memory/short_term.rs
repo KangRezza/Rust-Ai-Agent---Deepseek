@@ -16,6 +16,7 @@ pub struct ShortTermMemory {
     conversations: VecDeque<Conversation>,
     topic_index: HashMap<String, Vec<usize>>,
     max_size: usize,
+    interactions: Vec<(String, String)>,
 }
 
 impl ShortTermMemory {
@@ -24,37 +25,16 @@ impl ShortTermMemory {
             conversations: VecDeque::new(),
             topic_index: HashMap::new(),
             max_size: 50, // Keep last 50 conversations
+            interactions: Vec::new(),
         }
     }
 
     pub fn add_interaction(&mut self, user_input: &str, ai_response: &str) {
-        // Extract topics from the conversation
-        let topics = self.extract_topics(user_input, ai_response);
-        
-        // Calculate relevance score based on topic overlap with recent conversations
-        let relevance_score = self.calculate_relevance(&topics);
+        self.interactions.push((user_input.to_string(), ai_response.to_string()));
+    }
 
-        let conversation = Conversation {
-            timestamp: Utc::now(),
-            user_input: user_input.to_string(),
-            ai_response: ai_response.to_string(),
-            topics,
-            relevance_score,
-        };
-
-        // Update topic index for the new conversation
-        let conv_index = self.conversations.len();
-        for topic in &conversation.topics {
-            self.topic_index
-                .entry(topic.clone())
-                .or_insert_with(Vec::new)
-                .push(conv_index);
-        }
-
-        self.conversations.push_back(conversation);
-
-        // Maintain size limit while preserving most relevant conversations
-        self.prune_conversations();
+    pub fn get_interactions(&self) -> &Vec<(String, String)> {
+        &self.interactions
     }
 
     fn extract_topics(&self, user_input: &str, ai_response: &str) -> Vec<String> {

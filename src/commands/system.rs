@@ -37,6 +37,15 @@ pub fn handle_command(input: &str) -> Result<(), String> {
             println!("  help  - Show this help menu");
             println!("  exit  - Exit the program");
             println!();
+
+            println!("\n📄 {}", "Document Commands:".bright_cyan());
+            println!("  doc analyze <file>   - Analyze a document");
+            println!("  doc summary <file>   - Get a quick summary");
+            println!("  doc extract <file>   - Extract text from document");
+            println!("  doc ocr <image>      - Extract text from image");
+            println!("  doc batch <folder>   - Process multiple files");
+            println!("  doc info <file>      - Show file information");
+
             Ok(())
         }
         "exit" | "quit" => {

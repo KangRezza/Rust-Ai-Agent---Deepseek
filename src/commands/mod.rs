@@ -1,6 +1,5 @@
 use colored::Colorize;
-
-use crate::DeepSeekProvider;
+use crate::providers::deepseek::deepseek::DeepSeekProvider;
 use crate::personality::PersonalityProfile;
 use crate::providers::twitter::manager::ConversationManager;
 use crate::providers::web_crawler::crawler_manager::WebCrawlerManager;
@@ -12,6 +11,7 @@ mod character;
 mod twitter;
 mod web;
 mod system;
+mod document;
 
 pub struct CommandHandler {
     twitter_manager: Option<ConversationManager>,
@@ -64,6 +64,17 @@ impl CommandHandler {
             return self.handle_character_command(input).await;
         }
 
+        // Document commands
+        if input.starts_with("doc ") {
+            return document::handle_command(
+                input, 
+                &self.deepseek_provider,
+                &mut self.memory,
+                &mut self.long_term_memory,
+                &self.db
+            ).await;
+        }
+
         // Twitter commands
         if input.starts_with("tweet ") || 
            input.starts_with("autopost ") || 
@@ -85,7 +96,7 @@ impl CommandHandler {
         }
 
         // Default to chat completion if no command matches
-        self.handle_chat_command(input).await
+        self.handle_chat(input).await
     }
 
     async fn handle_twitter_command(&mut self, input: &str) -> Result<(), String> {
@@ -103,24 +114,13 @@ impl CommandHandler {
     }
 
     async fn handle_web_command(&mut self, input: &str) -> Result<(), String> {
-        match input.to_lowercase().as_str() {
-            "analyze" => {
-                println!("Please provide a URL to analyze.");
-                println!("Usage: analyze <url>");
-                Ok(())
-            }
-            "research" => {
-                println!("Please provide a topic to research.");
-                println!("Usage: research <topic>");
-                Ok(())
-            }
-            "links" => {
-                println!("Please provide a URL to extract links from.");
-                println!("Usage: links <url>");
-                Ok(())
-            }
-            _ => web::handle_command(input, &mut self.web_crawler).await
-        }
+        web::handle_command(
+            input, 
+            &mut self.web_crawler, 
+            &self.deepseek_provider,
+            &mut self.memory,
+            &mut self.long_term_memory,
+        ).await
     }
 
     async fn handle_character_command(&mut self, input: &str) -> Result<(), String> {
@@ -140,59 +140,25 @@ impl CommandHandler {
         system::handle_command(input)
     }
 
-    async fn handle_chat_command(&mut self, input: &str) -> Result<(), String> {
+    async fn handle_chat(&mut self, input: &str) -> Result<(), String> {
         // Count input tokens
         let input_tokens = input.split_whitespace().count();
         println!("📥 Input tokens: {}", input_tokens.to_string().cyan());
 
-        // Get recent conversations from database
-        let recent_convos = match self.db.get_recent_conversations(5).await {
-            Ok(convos) => convos,
-            Err(e) => {
-                eprintln!("Warning: Failed to get recent conversations: {}", e);
-                vec![]
-            }
-        };
-        
-        // Build context from recent conversations
-        let mut context = String::new();
-        for (_timestamp, user_msg, ai_msg, personality) in recent_convos {
-            if personality == self.personality.name {
-                context.push_str(&format!("User: {}\nAI: {}\n", user_msg, ai_msg));
-            }
-        }
-
-        // Get response from AI with context
-        let prompt = if context.is_empty() {
-            input.to_string()
-        } else {
-            format!("Previous conversation:\n{}\n\nCurrent message: {}", context, input)
-        };
-
-        match self.deepseek_provider.complete(&prompt).await {
+        // Get response from AI
+        match self.deepseek_provider.complete(input).await {
             Ok(response) => {
-                // Count response tokens
                 let response_tokens = response.split_whitespace().count();
-                
-                // Save to database
-                if let Err(e) = self.db.save_conversation(
-                    input.to_string(), 
-                    response.clone(),
-                    self.personality.name.clone()
-                ).await {
-                    eprintln!("Warning: Failed to save conversation to database: {}", e);
-                }
-
-                // Print response with token counts
-                self.print_response(&self.personality.name, &response, input_tokens, response_tokens);
+                self.print_response("", &response, input_tokens, response_tokens);
                 Ok(())
             }
             Err(e) => Err(format!("Failed to get AI response: {}", e))
         }
     }
 
-    fn print_response(&self, character_name: &str, response: &str, input_tokens: usize, response_tokens: usize) {
-        println!("{}", response.bright_green());
+    fn print_response(&self, _character_name: &str, response: &str, input_tokens: usize, response_tokens: usize) {
+        println!("{}", response.truecolor(255, 236, 179));
+        
         println!("\n📊 Tokens: 📥 Input: {} | 📤 Response: {} | 📈 Total: {}", 
             input_tokens.to_string().cyan(),
             response_tokens.to_string().cyan(),
@@ -201,3 +167,5 @@ impl CommandHandler {
         println!();
     }
 }
+
+pub use document::handle_command as handle_document_command;

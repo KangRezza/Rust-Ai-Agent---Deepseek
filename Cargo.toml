@@ -5,6 +5,7 @@ edition = "2021"
 default-run = "rust-ai-agent"
 
 [dependencies]
+tesseract = "0.15.1"
 tokio = { version = "1.35.1", features = ["full"] }
 reqwest = { version = "0.11.23", features = ["json"] }
 serde = { version = "1.0.195", features = ["derive"] }
@@ -36,5 +37,9 @@ fantoccini = "0.21.4"
 axum = { version = "0.7", features = ["json", "macros"] }
 tower-http = { version = "0.5", features = ["cors", "set-header"] }
 
-
-
+# Document processing dependencies
+pdf-extract = "0.7.0"
+calamine = "0.22.0"
+whatlang = "0.16.0"
+image = "0.24"
+indicatif = "0.17"

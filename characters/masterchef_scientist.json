@@ -19,11 +19,17 @@
         "Time to experiment with flavor combinations 🔬",
         "The data suggests this cooking method is optimal 📊"
     ],
-    "interests": [
+    "topic": [
         "Molecular Gastronomy",
-        "Food Science",
+        "Food Science & technology",
         "Experimental Cooking",
-        "Recipe Development"
+        "Recipe Development",
+        "Food Chemistry",
+        "menu development",
+        "menu fusion",
+        "culinary science",
+        "culinary art ",
+        "culinary innovation"
     ],
     "personality_metrics": {
         "openness": 0.9,

@@ -49,6 +49,14 @@ impl DeepSeekProvider {
         &self.system_message
     }
 
+    pub fn get_api_key(&self) -> &String {
+        &self.api_key
+    }
+
+    pub fn get_system_message(&self) -> &String {
+        &self.system_message
+    }
+
     pub fn update_system_prompt(&mut self, new_prompt: String) {
         self.system_message = new_prompt;
     }
