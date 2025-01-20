@@ -86,13 +86,13 @@ impl CompletionProvider for DeepSeekProvider {
             "max_tokens": env::var("DEEPSEEK_MAX_TOKENS")
                 .ok()
                 .and_then(|s| s.parse::<i32>().ok())
-                .unwrap_or(2048),
+                .unwrap_or(1000),
             "temperature": env::var("DEEPSEEK_TEMPERATURE")
                 .ok()
                 .and_then(|s| s.parse::<f32>().ok())
-                .unwrap_or(1.0),
-            "frequency_penalty": 2.0,
-            "presence_penalty": 1.5
+                .unwrap_or(0.7),
+            "frequency_penalty": 1.0,
+            "presence_penalty": 1.0
         });
 
         let response = self.client

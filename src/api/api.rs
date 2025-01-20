@@ -4,7 +4,7 @@ use axum::{
     Json,
     extract::State,
     response::{IntoResponse, Response},
-    http::{Method, header, StatusCode},
+    http::StatusCode,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -12,33 +12,38 @@ use tokio::sync::RwLock;
 use tower_http::cors::{CorsLayer, Any};
 use std::error::Error;
 use std::fmt;
-use tokio::fs;
-use tower::limit::RateLimitLayer;
 
 use crate::personality::PersonalityProfile;
 use crate::DeepSeekProvider;
 use crate::database::Database;
 use crate::completion::CompletionProvider;
-
+use crate::providers::web_crawler::crawler_manager::WebCrawlerManager;
+use crate::memory::{ShortTermMemory, LongTermMemory};
 
 #[derive(Clone)]
 pub struct AppState {
     deepseek: Arc<DeepSeekProvider>,
     personality: Arc<RwLock<PersonalityProfile>>,
     db: Arc<Database>,
+    crawler: Arc<RwLock<Option<WebCrawlerManager>>>,
+    memory: Arc<RwLock<ShortTermMemory>>,
+    long_term_memory: Arc<RwLock<LongTermMemory>>,
 }
 
-#[derive(Deserialize, Validate)]
+#[derive(Deserialize)]
 pub struct ChatRequest {
-    #[validate(length(min = 1, max = 1000))]
     message: String,
-    #[validate(length(min = 1, max = 100))]
     character: Option<String>,
 }
 
 #[derive(Deserialize)]
 pub struct CharacterRequest {
     character: String,
+}
+
+#[derive(Deserialize)]
+pub struct WebRequest {
+    command: String,
 }
 
 #[derive(Serialize)]
@@ -77,17 +82,21 @@ impl fmt::Display for ApiError {
 
 impl Error for ApiError {}
 
-/// API Documentation
-#[openapi]
 pub async fn create_api(
     deepseek: DeepSeekProvider,
     personality: PersonalityProfile,
     db: Database,
+    crawler: Option<WebCrawlerManager>,
+    memory: ShortTermMemory,
+    long_term_memory: LongTermMemory,
 ) -> Router {
     let state = AppState {
         deepseek: Arc::new(deepseek),
         personality: Arc::new(RwLock::new(personality)),
         db: Arc::new(db),
+        crawler: Arc::new(RwLock::new(crawler)),
+        memory: Arc::new(RwLock::new(memory)),
+        long_term_memory: Arc::new(RwLock::new(long_term_memory)),
     };
 
     println!("Setting up API server with CORS...");
@@ -101,17 +110,12 @@ pub async fn create_api(
 
     println!("CORS configured with permissive settings");
 
-    let rate_limit = RateLimitLayer::new(
-        100, // requests
-        std::time::Duration::from_secs(60) // per minute
-    );
-
     Router::new()
         .route("/chat", post(chat_handler))
         .route("/character", post(character_handler))
         .route("/health", get(health_check))
+        .route("/web", post(web_handler))
         .layer(cors)
-        .layer(rate_limit)
         .with_state(state)
 }
 
@@ -269,4 +273,144 @@ async fn health_check() -> Response {
     Json(ApiResponse { 
         status: "Server is running and healthy".to_string() 
     }).into_response()
+}
+
+async fn web_handler(
+    State(state): State<AppState>,
+    Json(request): Json<WebRequest>,
+) -> Response {
+    let command = request.command.as_str();
+    
+    let mut crawler = state.crawler.write().await;
+    let mut memory = state.memory.write().await;
+    let mut long_term_memory = state.long_term_memory.write().await;
+    let personality = state.personality.read().await;
+    
+    match handle_web_command(
+        command,
+        &mut crawler,
+        &state.deepseek,
+        &mut memory,
+        &mut long_term_memory,
+        &personality
+    ).await {
+        Ok(result) => Json(ApiResponse { 
+            status: result 
+        }).into_response(),
+        Err(e) => (
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse { status: e })
+        ).into_response()
+    }
+}
+
+async fn handle_web_command(
+    command: &str,
+    crawler: &mut Option<WebCrawlerManager>,
+    provider: &DeepSeekProvider,
+    memory: &mut ShortTermMemory,
+    long_term_memory: &mut LongTermMemory,
+    personality: &PersonalityProfile,
+) -> Result<String, String> {
+    if let Some(crawler) = crawler {
+        match command {
+            s if s.starts_with("analyze ") => {
+                let url = s.trim_start_matches("analyze ").trim();
+                if url.is_empty() {
+                    return Err("Please provide a URL to analyze.".to_string());
+                }
+
+                let content = crawler.analyze_url(url).await
+                    .map_err(|e| format!("Failed to analyze webpage: {}", e))?;
+
+                memory.add_interaction(
+                    &format!("Webpage being discussed: {}", url),
+                    &format!("Content:\n{}", content)
+                );
+
+                // Create new provider with current personality
+                let system_prompt = personality.generate_system_prompt();
+                let new_provider = DeepSeekProvider::new(provider.get_api_key().to_string(), system_prompt)
+                    .await
+                    .map_err(|e| format!("Failed to create provider: {}", e))?;
+
+                let analysis_prompt = format!(
+                    "{}\n\n\
+                    Analyze this webpage content and provide your unique perspective. \
+                    Consider your personality traits and expertise. \
+                    Be creative and stay true to your character's style:\n\n{}",
+                    new_provider.get_system_message(),
+                    content
+                );
+
+                let analysis = new_provider.complete(&analysis_prompt).await
+                    .map_err(|e| format!("Failed to analyze content: {}", e))?;
+
+                memory.add_interaction(
+                    &format!("Analysis of webpage: {}", url),
+                    &analysis
+                );
+
+                Ok(analysis)
+            },
+            s if s.starts_with("research ") => {
+                let topic = s.trim_start_matches("research ").trim();
+                if topic.is_empty() {
+                    return Err("Please provide a topic to research.".to_string());
+                }
+
+                let results = crawler.research_topic(topic).await
+                    .map_err(|e| format!("Failed to research topic: {}", e))?;
+
+                memory.add_interaction(
+                    &format!("Research topic: {}", topic),
+                    &format!("Research findings:\n{}", results.join("\n"))
+                );
+
+                // Create new provider with current personality
+                let system_prompt = personality.generate_system_prompt();
+                let new_provider = DeepSeekProvider::new(provider.get_api_key().to_string(), system_prompt)
+                    .await
+                    .map_err(|e| format!("Failed to create provider: {}", e))?;
+
+                let research_prompt = format!(
+                    "{}\n\n\
+                    Analyze and synthesize the research about '{}' in your unique style. \
+                    Structure your response in these sections:\n\
+                    1. Key Findings (3-10 main points)\n\
+                    2. Analysis (from your unique perspective)\n\
+                    Keep each section focused and insightful. \
+                    Stay true to your character's expertise and communication style.\n\n\
+                    3. Then make a quick summary of all of these, short and insightful with your own unique style:\n{}",  
+                    new_provider.get_system_message(),
+                    topic,
+                    results.join("\n")
+                );
+
+                let analysis = new_provider.complete(&research_prompt).await
+                    .map_err(|e| format!("Failed to synthesize research: {}", e))?;
+
+                memory.add_interaction(
+                    &format!("Research analysis: {}", topic),
+                    &analysis
+                );
+
+                Ok(analysis)
+            },
+            s if s.starts_with("links ") => {
+                let url = s.trim_start_matches("links ").trim();
+                if url.is_empty() {
+                    return Err("Please provide a URL to extract links from.".to_string());
+                }
+
+                let links = crawler.extract_links(url).await
+                    .map_err(|e| format!("Failed to extract links: {}", e))?;
+
+                Ok(format!("Links found:\n{}", links.join("\n")))
+            },
+            _ => Err("Unknown web command. Available commands: analyze <url>, research <topic>, links <url>".to_string())
+        }
+    } else {
+        Err("Web crawler not initialized. Use --crawler flag to enable web features.".to_string())
+    }
 } 

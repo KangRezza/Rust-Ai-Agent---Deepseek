@@ -2696,6 +2696,7 @@ dependencies = [
  "log",
  "pdf-extract",
  "rand",
+ "regex",
  "reqwest",
  "rustyline",
  "scraper",

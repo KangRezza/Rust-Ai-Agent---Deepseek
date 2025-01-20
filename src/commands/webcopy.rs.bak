@@ -3,6 +3,12 @@ use crate::completion::CompletionProvider;
 use crate::providers::deepseek::deepseek::DeepSeekProvider;
 use crate::memory::{ShortTermMemory, LongTermMemory};
 use colored::Colorize;
+use regex::Regex;
+
+fn add_spaces(text: &str) -> String {
+    let re = Regex::new(r"(?<!^)(?=[A-Z])").unwrap();
+    re.replace_all(text, " ").to_string()
+}
 
 pub async fn handle_command(
     input: &str,
@@ -42,14 +48,17 @@ pub async fn handle_command(
                 let analysis = provider.complete(&analysis_prompt).await
                     .map_err(|e| format!("Failed to analyze content: {}", e))?;
 
+                // Post-process the analysis to add spaces
+                let formatted_analysis = add_spaces(&analysis);
+
                 // Store analysis in memory
                 memory.add_interaction(
                     &format!("Analysis of webpage: {}", url),
-                    &analysis
+                    &formatted_analysis
                 );
 
                 println!("\n📊 Analysis Results for {}:", url.bright_yellow());
-                println!("{}", analysis.truecolor(255, 236, 179));
+                println!("{}", formatted_analysis.truecolor(255, 236, 179));
                 println!("\n💭 You can now ask questions about this webpage. Try:");
                 println!("  web chat what are the main points?");
                 println!("  web chat can you explain [specific topic] in more detail?");
@@ -81,7 +90,7 @@ pub async fn handle_command(
                     2. Analysis with (your unique perspective)\n\
                     Keep each section focused and insightfully \
                     Stay true to your character's expertise and communication style.\n\n\
-                    3.then make quick summarize all of these , short and insightful with your own unique style:\n{}", 
+                    3.then make quick summarize all,short and insightful with your own unique style:\n{}", 
                     provider.get_system_message(),
                     topic,
                     results.join("\n")
@@ -90,14 +99,17 @@ pub async fn handle_command(
                 let analysis = provider.complete(&research_prompt).await
                     .map_err(|e| format!("Failed to synthesize research: {}", e))?;
 
+                // Post-process the analysis to add spaces
+                let formatted_analysis = add_spaces(&analysis);
+
                 // Store analysis in memory
                 memory.add_interaction(
                     &format!("Research analysis: {}", topic),
-                    &analysis
+                    &formatted_analysis
                 );
 
                 println!("\n📚 Research Results for '{}':", topic.bright_yellow());
-                println!("{}", analysis.truecolor(255, 236, 179));
+                println!("{}", formatted_analysis.truecolor(255, 236, 179));
                 println!("\n💭 You can now ask questions about this research. Try:");
                 println!("  web chat tell me more about [specific finding]");
                 println!("  web chat what are the implications of [topic]?");

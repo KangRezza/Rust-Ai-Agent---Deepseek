@@ -22,7 +22,7 @@
     ],
     "personality_metrics": {
         "openness": 0.7,
-        "conscientiousness": 0.95,
+        "conscientiousness": 0.85,
         "extraversion": 0.6,
         "agreeableness": 0.8,
         "neuroticism": 0.4

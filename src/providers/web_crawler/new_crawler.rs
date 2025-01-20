@@ -57,7 +57,14 @@ impl WebCrawler {
             format!("https://duckduckgo.com/?q={}", urlencoding::encode(query)),
             format!("https://duckduckgo.com/?q={}+guide", urlencoding::encode(query)),        // Guides
             format!("https://duckduckgo.com/?q={}&t=h_", urlencoding::encode(query)),         // Different region
-            format!("https://duckduckgo.com/?q={}+tutorial", urlencoding::encode(query))      // Tutorials
+            format!("https://duckduckgo.com/?q={}+tutorial", urlencoding::encode(query)),      // Tutorials
+            format!("https://www.bing.com/search?q={}", urlencoding::encode(query)),            // Bing Search
+            format!("https://www.bing.com/search?q={}+news", urlencoding::encode(query)),      // Bing News
+            format!("https://www.yahoo.com/search?p={}", urlencoding::encode(query)),           // Yahoo Search
+            format!("https://www.yahoo.com/search?p={}+news", urlencoding::encode(query)),     // Yahoo News
+            format!("https://www.google.com/search?q={}+site:twitter.com", urlencoding::encode(query)), // Twitter Search via Google
+            format!("https://www.google.com/search?q={}+site:reddit.com", urlencoding::encode(query)),  // Reddit Search via Google
+            format!("https://www.google.com/search?q={}+site:facebook.com", urlencoding::encode(query)) // Facebook Search via Google
         ])
     }
 

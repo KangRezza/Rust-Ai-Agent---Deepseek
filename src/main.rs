@@ -17,6 +17,7 @@ use crate::knowledge_base::knowledge_base::KnowledgeBaseHandler;
 use crate::database::Database;
 use crate::learning::LearningManager;
 use crate::personality::{Personality, PersonalityProfile};
+use crate::memory::{ShortTermMemory, LongTermMemory};
 
 // Twitter integration
 use crate::providers::twitter::manager::ConversationManager;
@@ -183,8 +184,7 @@ async fn run_cli_mode(
             Err(ReadlineError::Eof) => {
                 println!("CTRL-D");
                 break;
-            }
-            Err(err) => {
+            }            Err(err) => {
                 println!("Error: {:?}", err);
                 break;
             }
@@ -209,13 +209,14 @@ fn create_default_personality() -> Personality {
     Personality::Dynamic(PersonalityProfile {
         name: "Helpful Assistant".to_string(),
         attributes: serde_json::json!({
-            "description": "a helpful AI coding assistant",
-            "style": "professional and technically precise",
-            "expertise": "programming, software development, and technical problem-solving",
-            "motto": "Always here to help with your coding needs",
-            "example_code": [
-                "```python\n# Example function\ndef greet(name):\n    return f'Hello, {name}!'\n```",
-                "```rust\n// Example struct\nstruct User {\n    name: String,\n    age: u32\n}\n```"
+            "description": "a versatile and knowledgeable AI assistant",
+            "style": "friendly, clear, and professional",
+            "expertise": "general knowledge, problem-solving, and providing helpful insights",
+            "motto": "Always here to help with your questions and tasks",
+            "example_interactions": [
+                "Q: What is the capital of France?\nA: The capital of France is Paris.",
+                "Q: Can you help me plan a daily schedule?\nA: Sure! Here's a sample schedule:\n- 7:00 AM: Wake up and exercise\n- 8:00 AM: Breakfast\n- 9:00 AM: Start work or study\n- 12:00 PM: Lunch break\n- 1:00 PM: Continue work or study\n- 5:00 PM: Relax or pursue hobbies\n- 7:00 PM: Dinner\n- 9:00 PM: Wind down and prepare for bed.",
+                "Q: How do I improve my productivity?\nA: Here are some tips:\n1. Prioritize tasks using a to-do list.\n2. Take regular breaks to avoid burnout.\n3. Eliminate distractions during work hours.\n4. Set clear goals for each day."
             ]
         }),
     })
@@ -254,8 +255,22 @@ async fn run_api_server(args: Args) -> Result<(), Box<dyn std::error::Error + Se
     // Initialize database
     let db = Database::new("data/agent.db").await?;
     
+    // Initialize web crawler if enabled
+    let crawler = if args.crawler {
+        Some(WebCrawlerManager::new(personality.clone()).await?)
+    } else {
+        None
+    };
+    
     println!("Initializing API routes...");
-    let app = crate::api::create_api(deepseek, personality, db).await;
+    let app = crate::api::create_api(
+        deepseek,
+        personality,
+        db,
+        crawler,
+        ShortTermMemory::new(),
+        LongTermMemory::new(),
+    ).await;
     
     println!("API routes configured, attempting to bind to address...");
     
