@@ -89,25 +89,8 @@ An advanced, modular AI agent built in Rust, designed to provide intelligent, co
 - Personality Loader, u can change character in Runtime 
 - Conversation Tracker
 - Emotion Expression Engine
-
-## 👥 Included Characters
-1. **Zara "CodeWizard" Chen**
-   - Programming-focused personality
-   - Technical humor specialist
-
-2. **Dr. Rissa**
-   - Neuroscience researcher
-   - Analytical communication style
-
-3. **Joey**
-   - Culinary science expert
-   - Experimental communication approach
-
-4. **Alex Chen**
-   - Startup founder
-   - Innovation-driven communicator
   
-======≠=============
+======≠===============
 
 - Support Twitter integration
 
