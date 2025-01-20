@@ -1,6 +1,12 @@
-# Rust-Ai-Agent - Deepseek
-My 1st project using Rust , Just check , maybe useful  😁
-im noob, start from scratch , learning programming just copy and paste generate code from Ai 😆 😆 , im not dev , this is just test 
+# AiRysZ - Deepseek 
+
+Xperimental project - Warning 
+
+"I'm starting my first AI project "
+
+"This is for personal documentation and learning purposes only. im not Developer ,I don't have coding experience, and neither do the others here. However, feel free to try it out if you're interested."
+
+==============================
 
 to start 
 
@@ -30,12 +36,15 @@ happy to chat with ur own deepseek
 
 # Example result 
 
-![image](https://github.com/user-attachments/assets/5ccf5cf7-8570-4125-8dff-2669010ed5cb)
+![Screenshot_2025-01-20-10-22-56-081_com twitter android-edit](https://github.com/user-attachments/assets/3fe5c782-f4d1-443d-b9d4-52b84b2f4d13)
 
+![Screenshot_2025-01-20-10-24-02-172_com twitter android-edit](https://github.com/user-attachments/assets/25beeb4b-c723-4b50-ae99-cd6e743d4d00)
+
+![Screenshot_2025-01-20-10-24-21-800_com twitter android-edit](https://github.com/user-attachments/assets/cc4b810a-4cc1-47db-b11a-fd24a63b0026)
 
 ======================
 
-# Rust AI Agent: Intelligent Conversational System 
+# AiRysZ
 
 ## 🚀 Project Overview
 
@@ -71,10 +80,9 @@ An advanced, modular AI agent built in Rust, designed to provide intelligent, co
 - **Character Management**: JSON-based configuration
 
 ### Key Components
-- Personality Loader
+- Personality Loader, u can change character in Runtime 
 - Conversation Tracker
 - Emotion Expression Engine
-- Knowledge Base Manager
 
 ## 👥 Included Characters
 1. **Zara "CodeWizard" Chen**
@@ -92,7 +100,16 @@ An advanced, modular AI agent built in Rust, designed to provide intelligent, co
 4. **Alex Chen**
    - Startup founder
    - Innovation-driven communicator
+  
+======≠=============
 
+- Support Twitter integration
+
+- Support Web Crawler
+(Research topic ,analyze url , Find info links ) 
+
+- Support Document Processor
+  (all format , but not all doc work well , use with caution) 
 
 ## 🤝 Contribution
 fell free  
@@ -155,38 +172,22 @@ let custom_character = PersonalityProfile {
 
 Best Practices
 Keep character files in characters/ directory
+
 Use meaningful, descriptive filenames
+
 Maintain consistent JSON structure
+
 Experiment with different personality traits
 
-# Web Crawler Setup
+==============
+NOTED
 
-For web crawling functionality, you need to have a WebDriver running. The easiest way is to use ChromeDriver:
+- For Front End still on Progress
 
-1. Install ChromeDriver:
-   ```bash
-   # For Ubuntu/Debian
-   sudo apt install chromium-chromedriver
-   
-   # For macOS
-   brew install chromedriver
-   
-   # For Windows, download from:
-   # https://chromedriver.chromium.org/downloads
-   ```
+- Have Many Warning ⚠️ ⚠️ , use with Caution 🫡🫡🙏
 
-2. Start ChromeDriver:
-   ```bash
-   chromedriver --port=4444
-   ```
+- Messy Documentations 😄 ( still working ) 
 
-3. Run the program with web crawler enabled:
-   ```bash
-   cargo run -- --crawler
-   ```
+==============
 
-You can also enable the web crawler by setting the environment variable:
-```bash
-export ENABLE_CRAWLER=true
-cargo run
-```
+inspired by @elizaOs , @RiG playground , @ZereBro , and others Ai Agentz , 2025 is years Of Ai Agent , lets go 🔥 🔥
