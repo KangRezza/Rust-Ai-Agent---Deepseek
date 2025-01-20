@@ -42,6 +42,12 @@ happy to chat with ur own deepseek
 
 ![Screenshot_2025-01-20-10-24-21-800_com twitter android-edit](https://github.com/user-attachments/assets/cc4b810a-4cc1-47db-b11a-fd24a63b0026)
 
+
+can change character in runtime too
+
+![Screenshot_2025-01-20-10-51-14-485_com twitter android-edit](https://github.com/user-attachments/assets/5608d9a9-6755-4d70-978d-826618b66acb)
+
+
 ======================
 
 # AiRysZ
